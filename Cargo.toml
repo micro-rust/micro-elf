@@ -1,0 +1,12 @@
+[package]
+name = "micro-elf"
+version = "0.1.0"
+authors = ["Andrés García <agrc14@gmail.com>"]
+edition = "2018"
+description = "Framework utility tool to interact with ELF files"
+readme = "README.md"
+homepage = "https://github.com/micro-rust/micro-elf"
+repository = "https://github.com/micro-rust/micro-elf"
+license = "MPL-2.0"
+
+[dependencies]
