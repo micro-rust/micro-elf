@@ -118,6 +118,8 @@ pub struct X32;
 
 impl ElfArch for X32 {
 	type Address = u32;
+	type SectionFlags = SectionFlags32;
+
 	const CLASSBIT: u8 = 1;
 	const ADDRSIZE: usize = 4;
 
@@ -144,6 +146,8 @@ impl ElfArch for X32 {
 
 pub trait ElfArch {
 	type Address: Copy + Clone + std::fmt::Debug + std::fmt::Display + std::fmt::UpperHex + std::fmt::Binary +core::convert::TryInto<usize>;
+	type SectionFlags: core::fmt::Display + core::convert::From<Self::Address>;
+
 	const CLASSBIT: u8;
 	const ADDRSIZE: usize;
 
@@ -154,4 +158,68 @@ pub trait ElfArch {
 	fn read(data: &[u8]) -> Self::Address;
 	fn slice(data: &[u8], off: usize) -> &[u8];
 	fn as_usize(x: Self::Address) -> usize;
+}
+
+pub struct SectionFlags32(u32);
+
+impl core::convert::From<u32> for SectionFlags32 {
+	fn from(x: u32) -> Self {
+		Self(x)
+	}
+}
+
+impl core::fmt::Display for SectionFlags32 {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		let mut args = String::new();
+
+		if self.0 & 0x001 == 0x001 {
+			args += "WRITE ";
+		}
+
+		if self.0 & 0x002 == 0x002 {
+			args += "ALLOC ";
+		}
+
+		if self.0 & 0x004 == 0x004 {
+			args += "EXEC ";
+		}
+
+		if self.0 & 0x010 == 0x010 {
+			args += "MERGE ";
+		}
+
+		if self.0 & 0x020 == 0x020 {
+			args += "STRINGS ";
+		}
+
+		if self.0 & 0x040 == 0x040 {
+			args += "LINKINFO ";
+		}
+
+		if self.0 & 0x080 == 0x080 {
+			args += "LINKORDER ";
+		}
+
+		if self.0 & 0x100 == 0x100 {
+			args += "NONCONFORMING ";
+		}
+
+		if self.0 & 0x200 == 0x200 {
+			args += "GROUP ";
+		}
+
+		if self.0 & 0x400 == 0x400 {
+			args += "TLS ";
+		}
+
+		if self.0 & 0x0FF00000 == 0x0FF00000 {
+			args += "MASKOS ";
+		}
+
+		if self.0 & 0xF0000000 == 0xF0000000 {
+			args += "MASKPROC ";
+		}
+
+		write!(f, "{}", args)
+	}
 }
