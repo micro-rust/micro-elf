@@ -115,7 +115,7 @@ impl<ARCH: ElfArch> SectionHeader<ARCH> {
 		args += &format!("{} - {}\n", self.shtype, self.sflags);
 
 		// File address - Virtual address.
-		args += &format!("File addr: {} - Memory addr: {}\n", self.offset, self.vaddr);
+		args += &format!("File addr: 0x{:08X} - Memory addr: 0x{:08X}\n", self.offset, self.vaddr);
 
 		// Section size.
 		args += &format!("Size: {} Bytes", self.filesize);
