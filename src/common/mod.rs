@@ -6,19 +6,34 @@
 // was not distributed with this file, You can obtain one
 // at https://mozilla.org/MPL/2.0/.
 
-#[macro_use]
-mod macros;
-
 
 mod abi;
 mod arch;
-mod filetype;
-mod iterator;
+mod elftype;
+mod ptype;
+mod stype;
 
 
-pub use self::abi::TargetOS;
+pub use self::abi::OsTarget;
 pub use self::arch::Architecture;
-pub use self::filetype::ELFType;
+pub use self::elftype::ELFType;
+pub use self::ptype::ProgramType;
+pub use self::stype::SectionType;
 
-pub use self::iterator::TableIterator;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Endianness {
+	Big,
+	Little,
+}
+
+impl std::fmt::Display for Endianness {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let s = match *self {
+			Endianness::Big => "Big Endian",
+			Endianness::Little => "Little Endian",
+		};
+
+		write!(f, "{}", s)
+	}
+}

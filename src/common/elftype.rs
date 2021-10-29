@@ -23,9 +23,8 @@ pub enum ELFType {
 }
 
 
-impl ELFType {
-	/// Parses the ELF Type from a `u16`.
-	pub fn parse(d: u16) -> ELFType {
+impl core::convert::From<u16> for ELFType {
+	fn from(d: u16) -> ELFType {
 		match d {
 			0x01 => ELFType::Relocatable,
 			0x02 => ELFType::Executable,

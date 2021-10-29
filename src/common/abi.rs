@@ -7,7 +7,7 @@
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TargetOS {
+pub enum OsTarget {
 	SystemV(u8),
 	HPUX(u8),
 	NetBSD(u8),
@@ -32,9 +32,9 @@ pub enum TargetOS {
 
 
 
-impl core::convert::From<(u8, u8)> for TargetOS {
-	fn from((os, v): (u8, u8)) -> TargetOS {
-		use TargetOS::*;
+impl core::convert::From<(u8, u8)> for OsTarget {
+	fn from((os, v): (u8, u8)) -> OsTarget {
+		use OsTarget::*;
 
 		match os {
 			0x00 => SystemV(v),
@@ -61,9 +61,9 @@ impl core::convert::From<(u8, u8)> for TargetOS {
 	}
 }
 
-impl core::convert::From<u8> for TargetOS {
-	fn from(os: u8) -> TargetOS {
-		use TargetOS::*;
+impl core::convert::From<u8> for OsTarget {
+	fn from(os: u8) -> OsTarget {
+		use OsTarget::*;
 
 		match os {
 			0x00 => SystemV(0),
@@ -91,9 +91,9 @@ impl core::convert::From<u8> for TargetOS {
 }
 
 
-impl core::fmt::Display for TargetOS {
+impl core::fmt::Display for OsTarget {
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		use TargetOS::*;
+		use OsTarget::*;
 
 		let arg = match *self {
 			SystemV(v)       => format!("System V - rev {}", v),

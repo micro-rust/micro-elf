@@ -10,3 +10,7 @@ repository = "https://github.com/micro-rust/micro-elf"
 license = "MPL-2.0"
 
 [dependencies]
+
+
+[dependencies.byteorder]
+version = "1"

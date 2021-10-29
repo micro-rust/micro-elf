@@ -8,176 +8,145 @@
 // at https://mozilla.org/MPL/2.0/.
 
 
-
-pub mod prelude;
-
-#[macro_use]
 pub mod common;
+pub mod header;
+
+use common::*;
+use header::*;
 
 
-mod fh;
-mod ph;
-mod sh;
-mod sym;
+pub struct Elf<ARCH: ElfArch> {
+	/// Full ELF file.
+	data: Vec<u8>,
 
-use prelude::*;
+	/// File header.
+	fh: FileHeader<ARCH>,
 
-#[derive(Clone)]
-pub struct ELFData<'a> {
-	/// Raw data of the ELF file.
-	data: &'a [u8],
+	/// All program headers.
+	ph: Vec<ProgramHeader<ARCH>>,
 
-	/// File Header of the ELF.
-	fh: FileHeader,
-
-	/// Program Headers of the ELF.
-	ph: Vec<ProgHeader>,
-
-	/// Section Headers of the ELF.
-	sh: Vec<SectHeader>,
-	/// All symbols present in the ELF file.
-	symbols: Vec<Symbol>,
+	/// All section headers.
+	sh: Vec<SectionHeader<ARCH>>,
 }
 
 
-impl<'a> ELFData<'a> {
-	/// Parses a file and converts it into a struct.
-	pub fn parse(data: &'a [u8]) -> ELFData<'a> {
-		match (data[0], data[1], data[2], data[3]) {
-			(0x7F, 0x45, 0x4C, 0x46) => (),
-			_ => panic!("Are you stupid?? This is not ELF data"),
-		}
+impl<ARCH: ElfArch> Elf<ARCH> {
+	/// Parses the ELF file.
+	pub fn parse(data: Vec<u8>) -> Self {
+		// Parse the file header.
+		let fh = FileHeader::parse(&data);
 
-		match data[4] {
-			1 => (),
-			2 => panic!("This ain't a 32 bit arch ELF"),
-			_ => panic!("Unknown data width size"),
-		}
+		// Get offset of the Program header table and read them all into a vector.
+		let s: usize = ARCH::as_usize(fh.phoff);
+		let e: usize = (fh.phnum * fh.phentsize) as usize;
 
-		// Get File Header.
-		// **********************************************************
-		let fh = match FileHeader::parse(data) {
-			Ok(x) => x,
-			_ => panic!("Failed to build File Header from file"),
+		let ph = data[s..s+e]
+			.chunks(fh.phentsize.into())
+			.map( |ph| ProgramHeader::parse(ph) )
+			.collect();
+
+		// Get offset of the Section header table and read them all into a vector.
+		let s: usize = ARCH::as_usize(fh.shoff);
+		let e: usize = (fh.shnum * fh.shentsize) as usize;
+
+		let mut sh: Vec<SectionHeader<ARCH>> = data[s..s+e]
+			.chunks(fh.shentsize.into())
+			.map( |sh| SectionHeader::parse(sh) )
+			.collect();
+
+		// Get the data from the SHSTRNDX.
+		let (off, size) = {
+			let section = &sh[fh.shstrndx as usize];
+			( ARCH::as_usize(section.offset), ARCH::as_usize(section.filesize) )
 		};
 
+		let names = &data[off..off+size];
 
-		// Get all Program Headers.
-		// **********************************************************
-		let mut ph: Vec<ProgHeader> = Vec::new();
-
-		for header in fh.phtable(data) {
-			ph.push( ProgHeader::parse(header) );
+		// Let all sections get their name.
+		for section in &mut sh {
+			section.naming( names );
 		}
 
 
-
-		// Get all Section Headers.
-		// **********************************************************
-		let mut sh: Vec<SectHeader> = Vec::new();
-
-		for header in fh.shtable(data) {
-			sh.push( SectHeader::parse(header) )
-		}
-
-		let shstrtab = sh.iter()
-			.find( |x| x.is_shstrtab() )
-			.expect("Could not extract .shstrtab section")
-			.content(data);
-
-		for header in &mut sh {
-			header.rename( &shstrtab );
-		}
-
-
-		// Get all symbols
-		// **********************************************************
-		let mut symbols: Vec<Symbol> = Vec::new();
-
-		let strtab = sh.iter()
-			.find( |x| x.is_strtab() )
-			.expect("Could not extract .strtab section")
-			.content(data);
-
-		let symboliter = sh.iter()
-			.find( |x| x.is_symtab() )
-			.expect("Could not extract .symtab section")
-			.iterate(data)
-			.expect(".symtab section is not iterable");
-
-		for symheader in symboliter {
-			symbols.push( Symbol::parse(symheader, &strtab) );
-		}
-
-		// Link all symbols to their corresponding data.
-		for symbol in &mut symbols {
-			symbol.link(&sh)
-		}
-
-		ELFData { data, fh, ph, sh, symbols }
+		Elf { data, fh, ph, sh }
 	}
 
-	/// Returns a list of its symbols.
-	pub fn symbols(&self) -> Vec<Symbol> {
-		self.symbols.clone()
+	/// Returns a reference to the program headers.
+	pub fn programs(&self) -> &[ProgramHeader<ARCH>] {
+		&self.ph
 	}
 
-	/// Attempts to load all Functions from their symbols
-	/// and their contents.
-	pub fn fndata(&self) -> Vec<(String, &'a[u8])> {
-
-		self.symbols.iter()
-			.filter( |sym| sym.is_function() )
-			.map( |sym| (sym.name(), sym.content(&self.data)) )
-			.filter( |(_, content)| content.is_some() )
-			.map( |(name, content)| (name, content.unwrap()) )
-			.collect()
+	/// Returns a reference to the section headers.
+	pub fn sections(&self) -> &[ProgramHeader<ARCH>] {
+		&self.ph
 	}
 }
 
-impl<'a> core::fmt::Debug for ELFData<'a> {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		write!(f, "{:?}", self.fh).unwrap();
+impl<ARCH: ElfArch> std::fmt::Display for Elf<ARCH> {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let mut args = String::new();
 
-		f.write_str("\n***************************************************\n").unwrap();
+		// Display File Header.
+		args += &format!("{}", self.fh);
+
+		// Display all Program Headers.
+		args += "Program headers:\n";
 
 		for ph in &self.ph {
-			write!(f, "{:?}\n", ph).unwrap();
+			args += &format!("{}", ph);
 		}
 
-		f.write_str("\n***************************************************\n").unwrap();
+		// Display all Section Headers.
+		args += "Section headers:\n";
 
 		for sh in &self.sh {
-			write!(f, "{:?}\n", sh).unwrap();
+			args += &format!("{}", sh);
 		}
 
-		f.write_str("\n***************************************************\n")
+		write!(f, "{}", args)
 	}
 }
 
-impl<'a> core::fmt::Display for ELFData<'a> {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		write!(f, "{}", self.fh).unwrap();
 
-		f.write_str("\n***************************************************\n").unwrap();
 
-		for ph in &self.ph {
-			write!(f, "{}\n", ph).unwrap();
-		}
+pub struct X32;
 
-		f.write_str("\n***************************************************\n").unwrap();
+impl ElfArch for X32 {
+	type Address = u32;
+	const CLASSBIT: u8 = 1;
+	const ADDRSIZE: usize = 4;
 
-		for sh in &self.sh {
-			write!(f, "{}\n", sh).unwrap();
-		}
+	const PFLAGS: usize = 0x18;
+	const PALIGN: usize = 0x1C;
+	const POFFSET: usize = 0x04;
 
-		f.write_str("\n***************************************************\n").unwrap();
+	fn read(data: &[u8]) -> Self::Address {
+		use byteorder::{ NativeEndian, ReadBytesExt };
+		use std::io::Cursor;
 
-		for sym in &self.symbols {
-			write!(f, "{}\n", sym).unwrap();
-		}
+		Cursor::new(data).read_u32::<NativeEndian>().expect("Buffer to read U32 not big enough.")
+	}
 
-		f.write_str("\n***************************************************\n")
+	fn slice(data: &[u8], off: usize) -> &[u8] {
+		&data[off..off+Self::ADDRSIZE]
+	}
+
+	fn as_usize(x: u32) -> usize {
+		x as usize
 	}
 }
 
+
+pub trait ElfArch {
+	type Address: Copy + Clone + std::fmt::Debug + std::fmt::Display + std::fmt::UpperHex + std::fmt::Binary +core::convert::TryInto<usize>;
+	const CLASSBIT: u8;
+	const ADDRSIZE: usize;
+
+	const PFLAGS: usize;
+	const PALIGN: usize;
+	const POFFSET: usize;
+
+	fn read(data: &[u8]) -> Self::Address;
+	fn slice(data: &[u8], off: usize) -> &[u8];
+	fn as_usize(x: Self::Address) -> usize;
+}
