@@ -9,7 +9,7 @@
 use byteorder::{ NativeEndian, ReadBytesExt };
 
 
-use crate::ElfArch;
+use crate::{ ElfArch, X32 };
 use crate::common::SectionType;
 
 
@@ -107,6 +107,22 @@ impl<ARCH: ElfArch> SectionHeader<ARCH> {
 		}
 	}
 
+	/// Create a redux display string.
+	pub fn redux(&self) -> String {
+		let mut args = String::new();
+
+		// Section type - Flags.
+		args += &format!("{} - {}\n", self.shtype, self.sflags);
+
+		// File address - Virtual address.
+		args += &format!("{} - {}\n", self.offset, self.vaddr);
+
+		// Section size.
+		args += &format!("{} Bytes", self.filesize);
+
+		args
+	}
+
 	/// Read the sections name from the given SHSTRNDX.
 	pub fn naming(&mut self, data: &[u8]) {
 		// End of name.
@@ -162,6 +178,74 @@ impl<ARCH: ElfArch> std::fmt::Display for SectionHeader<ARCH> {
 		args += &format!("    Section entry size:   {}\n\n",   self.entsize);
 
 		// Index of the 
+
+		write!(f, "{}", args)
+	}
+}
+
+
+
+pub struct SectionFlags<ARCH: ElfArch>(ARCH::Address);
+
+impl<ARCH: ElfArch> SectionFlags<ARCH> {
+	/// Creates a new Section flags from the given input.
+	pub fn new(x: ARCH::Address) -> Self {
+		Self(x)
+	}
+}
+
+
+impl core::fmt::Display for SectionFlags<X32> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		let mut args = String::new();
+
+		if self.0 & 0x001 == 0x001 {
+			args += "WRITE ";
+		}
+
+		if self.0 & 0x002 == 0x002 {
+			args += "ALLOC ";
+		}
+
+		if self.0 & 0x004 == 0x004 {
+			args += "EXEC ";
+		}
+
+		if self.0 & 0x010 == 0x010 {
+			args += "MERGE ";
+		}
+
+		if self.0 & 0x020 == 0x020 {
+			args += "STRINGS ";
+		}
+
+		if self.0 & 0x040 == 0x040 {
+			args += "LINKINFO ";
+		}
+
+		if self.0 & 0x080 == 0x080 {
+			args += "LINKORDER ";
+		}
+
+		if self.0 & 0x100 == 0x100 {
+			args += "NONCONFORMING ";
+		}
+
+		if self.0 & 0x200 == 0x200 {
+			args += "GROUP ";
+		}
+
+		if self.0 & 0x400 == 0x400 {
+			args += "TLS ";
+		}
+
+		if self.0 & 0x0FF00000 == 0x0FF00000 {
+			args += "MASKOS ";
+		}
+
+		if self.0 & 0xF0000000 == 0xF0000000 {
+			args += "MASKPROC ";
+		}
 
 		write!(f, "{}", args)
 	}
