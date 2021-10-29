@@ -177,7 +177,7 @@ impl<ARCH: ElfArch> std::fmt::Display for FileHeader<ARCH> {
 		args += &format!("  Architecture: {}\n\n", self.isa);
 
 		// Entry point.
-		args += &format!("  Entry (VAddr): {}\n\n", self.entry);
+		args += &format!("  Entry (VAddr): 0x{:08X}\n\n", self.entry);
 
 		// Program and section header table file offset.
 		args += &format!("  Program Header Table offset: 0x{:08X}\n",   self.phoff);

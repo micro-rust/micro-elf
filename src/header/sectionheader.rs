@@ -118,6 +118,11 @@ impl<ARCH: ElfArch> SectionHeader<ARCH> {
 		// Create name.
 		self.name = String::from_utf8( data[self.nameidx as usize..e].to_vec() ).unwrap();
 	}
+
+	/// Returns the name of the section.
+	pub fn name(&self) -> String {
+		self.name.clone()
+	}
 }
 
 
