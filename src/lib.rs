@@ -71,14 +71,19 @@ impl<ARCH: ElfArch> Elf<ARCH> {
 		Elf { data, fh, ph, sh }
 	}
 
+	/// Returns a reference to the file header.
+	pub fn fileheader(&self) -> &FileHeader<ARCH> {
+		&self.fh
+	}
+
 	/// Returns a reference to the program headers.
 	pub fn programs(&self) -> &[ProgramHeader<ARCH>] {
 		&self.ph
 	}
 
 	/// Returns a reference to the section headers.
-	pub fn sections(&self) -> &[ProgramHeader<ARCH>] {
-		&self.ph
+	pub fn sections(&self) -> &[SectionHeader<ARCH>] {
+		&self.sh
 	}
 }
 
