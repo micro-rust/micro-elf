@@ -105,7 +105,7 @@ impl core::fmt::Display for SectionType {
             Hash          => String::from("Symbol hash table"),
             Dynamic       => String::from("Dynamic linking information"),
             Notes         => String::from("Notes"),
-            Bss           => String::from("BSS | Program space with no data"),
+            Bss           => String::from("BSS"),
             Relocation    => String::from("Relocation entries with no addends"),
             SharedLib     => String::from("RESERVED"),
             DynamicSymbol => String::from("Dynamic linker symbol table"),

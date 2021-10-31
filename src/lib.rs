@@ -15,16 +15,20 @@
 
 pub mod common;
 pub mod file;
+pub mod function;
 pub mod program;
 pub mod section;
+pub mod symbol;
 
 
 use core::convert::TryFrom;
 
 
 use self::file::File32;
+use self::function::Function;
 use self::program::Program32;
 use self::section::Section32;
+use self::symbol::Symbol32;
 
 
 
@@ -47,6 +51,12 @@ pub struct Elf32 {
 
     /// All section headers.
     sh: Vec<Box<dyn ElfSection<Address = u32>>>,
+
+    /// All symbols.
+    sym: Vec<Box<dyn ElfSymbol<Address = u32>>>,
+
+    /// All functions.
+    fns: Vec<Function>,
 }
 
 
@@ -89,16 +99,57 @@ impl Elf32 {
             .map( |sh| Section32::parse::<byteorder::LittleEndian>(sh, &data).unwrap() )
             .collect();
 
-        // Get the .strtab section.
-        let strtab = sh[shstrndx as usize].raw();
+        // Get the .shstrtab section.
+        let shstrtab = sh[shstrndx as usize].raw().to_vec();
 
         // Let all sections get their name.
         for section in &mut sh {
-            section.naming( &strtab );
+            section.naming( &shstrtab );
         }
 
 
-        Box::new( Self { fh, ph, sh } )
+        // Get offset of the symbol table.
+        let mut index = 0;
+
+        for i in 0..sh.len() {
+            if sh[i].is_symtab() {
+                index = i;
+            }
+        }
+
+        // Parse the symbols.
+        let mut sym: Vec<Box<dyn ElfSymbol<Address = u32>>> = sh[index].raw()
+            .chunks(16)
+            .map(|chunk| Symbol32::parse::<byteorder::LittleEndian>(chunk))
+            .map(|s| s.unwrap() )
+            .collect();
+
+        // Get offset of the string table.
+        index = 0;
+
+        for i in 0..sh.len() {
+            if sh[i].is_strtab() {
+                index = i;
+            }
+        }
+
+        let strtab = sh[index].raw();
+
+        for s in &mut sym {
+            s.naming(strtab)
+        }
+
+        // Parse the functions.
+        let fns = sym.iter()
+            .filter(|symbol| symbol.is_function() )
+            .map(|symbol| {
+                let content = sh[symbol.section()].raw();
+
+                Function::parse32(symbol, content)
+            })
+            .collect();
+
+        Box::new( Self { fh, ph, sh, sym, fns } )
     }
 
     /// Parses the ELF file in 32 bit big endian mode.
@@ -129,16 +180,56 @@ impl Elf32 {
             .map( |sh| Section32::parse::<byteorder::BigEndian>(sh, &data).unwrap() )
             .collect();
 
-        // Get the .strtab section.
-        let strtab = sh[shstrndx as usize].raw();
+        // Get the .shstrtab section.
+        let shstrtab = sh[shstrndx as usize].raw().to_vec();
 
         // Let all sections get their name.
         for section in &mut sh {
-            section.naming( &strtab );
+            section.naming( &shstrtab );
         }
 
+        // Get offset of the symbol table.
+        let mut index = 0;
 
-        Box::new( Self { fh, ph, sh } )
+        for i in 0..sh.len() {
+            if sh[i].is_symtab() {
+                index = i;
+            }
+        }
+
+        // Parse the symbols.
+        let mut sym: Vec<Box<dyn ElfSymbol<Address = u32>>> = sh[index].raw()
+            .chunks(16)
+            .map(|chunk| Symbol32::parse::<byteorder::LittleEndian>(chunk))
+            .map(|s| s.unwrap() )
+            .collect();
+
+        // Get offset of the string table.
+        index = 0;
+
+        for i in 0..sh.len() {
+            if sh[i].is_strtab() {
+                index = i;
+            }
+        }
+
+        let strtab = sh[index].raw();
+
+        for s in &mut sym {
+            s.naming(strtab)
+        }
+
+        // Parse the functions.
+        let fns = sym.iter()
+            .filter(|symbol| symbol.is_function() )
+            .map(|symbol| {
+                let content = sh[symbol.section()].raw();
+
+                Function::parse32(symbol, content)
+            })
+            .collect();
+
+        Box::new( Self { fh, ph, sh, sym, fns } )
     }
 }
 
@@ -147,12 +238,12 @@ impl ElfTrait for Elf32 {
         &self.fh
     }
 
-    fn programs(&self) -> &Vec<Box<dyn ElfProgram<Address = u32>>> {
-        &self.ph
+    fn programs(&self) -> &[Box<dyn ElfProgram<Address = u32>>] {
+        &self.ph[1..]
     }
 
-    fn sections(&self) -> &Vec<Box<dyn ElfSection<Address = u32>>> {
-        &self.sh
+    fn sections(&self) -> &[Box<dyn ElfSection<Address = u32>>] {
+        &self.sh[1..]
     }
 }
 
@@ -175,6 +266,20 @@ impl std::fmt::Display for Elf32 {
 
         for sh in &self.sh {
             args += &format!("{}\n", sh.prettyprint(String::from("  ")));
+        }
+
+        // Display all Symbols.
+        args += "\nSymbols:\n";
+
+        for s in &self.sym {
+            args += &format!("{}\n", s.prettyprint(String::from("  ")));
+        }
+
+        // Display all Symbols.
+        args += "\nFunctions:\n";
+
+        for f in &self.fns {
+            args += &format!("{}\n", f);
         }
 
         write!(f, "{}", args)
@@ -201,6 +306,35 @@ pub enum Error {
     UnknownElfVersion,
 }
 
+pub trait ElfSymbol {
+    /// Address type.
+    type Address;
+
+    /// Parses the symbol table for a symbol.
+    fn parse<T: byteorder::ByteOrder>(symbol: &[u8]) -> Result<Box<dyn ElfSymbol<Address = Self::Address>>, Error> where Self: Sized;
+
+    /// Returns the related section's index.
+    fn section(&self) -> usize;
+
+    /// Returns the value of the symbol.
+    fn value(&self) -> Self::Address;
+
+    /// Returns the size of the symbol.
+    fn size(&self) -> Self::Address;
+
+    /// Returns the name of the symbol.
+    fn name(&self) -> String;
+
+    /// Assigns the name to the symbol.
+    fn naming(&mut self, strtab: &[u8]);
+
+    /// Returns `true` if the symbol is a function symbol.
+    fn is_function(&self) -> bool;
+
+    /// Returns a pretty print of the section.
+    fn prettyprint(&self, tab: String) -> String;
+}
+
 
 pub trait ElfSection {
     /// Address size.
@@ -219,13 +353,23 @@ pub trait ElfSection {
     fn info(&self) -> String;
 
     /// Returns the raw contents.
-    fn raw(&self) -> Vec<u8>;
+    fn raw(&self) -> &[u8];
 
     /// Returns the content of the Section ready to be formatted.
     fn content(&self) -> Vec<(Self::Address, Self::Address)>;
 
     /// Returns a pretty print of the section.
     fn prettyprint(&self, tab: String) -> String;
+
+    /// Returns `true` if the section is the symbol table.
+    fn is_symtab(&self) -> bool {
+        &self.name() == ".symtab"
+    }
+
+    /// Returns `true` if the section is the string table.
+    fn is_strtab(&self) -> bool {
+        &self.name() == ".strtab"
+    }
 }
 
 pub trait ElfProgram {
@@ -278,10 +422,10 @@ pub trait ElfTrait: core::fmt::Display {
     fn fileheader(&self) -> &Box<dyn ElfFile<Address = u32>>;
 
     /// Returns a reference to the program headers.
-    fn programs(&self) -> &Vec<Box<dyn ElfProgram<Address = u32>>>;
+    fn programs(&self) -> &[Box<dyn ElfProgram<Address = u32>>];
 
     /// Returns a reference to the section headers.
-    fn sections(&self) -> &Vec<Box<dyn ElfSection<Address = u32>>>;
+    fn sections(&self) -> &[Box<dyn ElfSection<Address = u32>>];
 }
 
 

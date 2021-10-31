@@ -165,8 +165,8 @@ impl ElfSection for Section32 {
         args
     }
 
-    fn raw(&self) -> Vec<u8> {
-        self.content.clone()
+    fn raw(&self) -> &[u8] {
+        &self.content
     }
 
     fn content(&self) -> Vec<(u32, u32)> {
