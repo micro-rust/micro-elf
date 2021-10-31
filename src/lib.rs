@@ -8,218 +8,284 @@
 // at https://mozilla.org/MPL/2.0/.
 
 
+#![allow(incomplete_features)]
+
+#![feature(generic_const_exprs)]
+
+
 pub mod common;
-pub mod header;
+pub mod file;
+pub mod program;
+pub mod section;
 
-use common::*;
-use header::*;
+
+use core::convert::TryFrom;
 
 
-pub struct Elf<ARCH: ElfArch> {
-	/// Full ELF file.
-	data: Vec<u8>,
+use self::file::File32;
+use self::program::Program32;
+use self::section::Section32;
 
-	/// File header.
-	fh: FileHeader<ARCH>,
 
-	/// All program headers.
-	ph: Vec<ProgramHeader<ARCH>>,
 
-	/// All section headers.
-	sh: Vec<SectionHeader<ARCH>>,
+pub fn parse(data: &Vec<u8>) -> Box<dyn ElfTrait> {
+        match data[0x04] {
+            1 => Elf32::parse(data),
+            2 => unimplemented!(),
+
+            _ => panic!("Bad ELF file"),
+        }
 }
 
 
-impl<ARCH: ElfArch> Elf<ARCH> {
-	/// Parses the ELF file.
-	pub fn parse(data: Vec<u8>) -> Self {
-		// Parse the file header.
-		let fh = FileHeader::parse(&data);
+pub struct Elf32 {
+    /// File header.
+    fh: Box<dyn ElfFile<Address = u32>>,
 
-		// Get offset of the Program header table and read them all into a vector.
-		let s: usize = ARCH::as_usize(fh.phoff);
-		let e: usize = (fh.phnum * fh.phentsize) as usize;
+    /// All program headers.
+    ph: Vec<Box<dyn ElfProgram<Address = u32>>>,
 
-		let ph = data[s..s+e]
-			.chunks(fh.phentsize.into())
-			.map( |ph| ProgramHeader::parse(ph) )
-			.collect();
-
-		// Get offset of the Section header table and read them all into a vector.
-		let s: usize = ARCH::as_usize(fh.shoff);
-		let e: usize = (fh.shnum * fh.shentsize) as usize;
-
-		let mut sh: Vec<SectionHeader<ARCH>> = data[s..s+e]
-			.chunks(fh.shentsize.into())
-			.map( |sh| SectionHeader::parse(sh) )
-			.collect();
-
-		// Get the data from the SHSTRNDX.
-		let (off, size) = {
-			let section = &sh[fh.shstrndx as usize];
-			( ARCH::as_usize(section.offset), ARCH::as_usize(section.filesize) )
-		};
-
-		let names = &data[off..off+size];
-
-		// Let all sections get their name.
-		for section in &mut sh {
-			section.naming( names );
-		}
-
-
-		Elf { data, fh, ph, sh }
-	}
-
-	/// Returns a reference to the file header.
-	pub fn fileheader(&self) -> &FileHeader<ARCH> {
-		&self.fh
-	}
-
-	/// Returns a reference to the program headers.
-	pub fn programs(&self) -> &[ProgramHeader<ARCH>] {
-		&self.ph
-	}
-
-	/// Returns a reference to the section headers.
-	pub fn sections(&self) -> &[SectionHeader<ARCH>] {
-		&self.sh
-	}
-}
-
-impl<ARCH: ElfArch> std::fmt::Display for Elf<ARCH> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let mut args = String::new();
-
-		// Display File Header.
-		args += &format!("{}", self.fh);
-
-		// Display all Program Headers.
-		args += "Program headers:\n";
-
-		for ph in &self.ph {
-			args += &format!("{}", ph);
-		}
-
-		// Display all Section Headers.
-		args += "Section headers:\n";
-
-		for sh in &self.sh {
-			args += &format!("{}", sh);
-		}
-
-		write!(f, "{}", args)
-	}
+    /// All section headers.
+    sh: Vec<Box<dyn ElfSection<Address = u32>>>,
 }
 
 
+impl Elf32 {
+    /// Parses the ELF file.
+    pub fn parse(data: &Vec<u8>) -> Box<dyn ElfTrait> {
+        // Check magic.
+        match data[0x05] {
+            1 => Self::parselittle(data),
+            2 => Self::parsebig(data),
+            _ => panic!("Bad ELF file"),
+        }
+    }
 
-pub struct X32;
+    /// Parses the ELF file in 32 bit little endian mode.
+    fn parselittle(data: &Vec<u8>) -> Box<dyn ElfTrait> {
+        // Parse the file header.
+        let fh = File32::parse::<byteorder::LittleEndian>(&data).unwrap();
 
-impl ElfArch for X32 {
-	type Address = u32;
-	type SectionFlags = SectionFlags32;
+        // Get program and section tables.
+        let (phoff, phnum, phentsize) = fh.programs();
+        let (shoff, shnum, shentsize) = fh.sections();
+        let shstrndx = fh.shstrndx();
 
-	const CLASSBIT: u8 = 1;
-	const ADDRSIZE: usize = 4;
+        // Get offset of the Program header table and read them all into a vector.
+        let s: usize = usize::try_from(phoff).unwrap();
+        let e: usize = (phnum * phentsize) as usize;
 
-	const PFLAGS: usize = 0x18;
-	const PALIGN: usize = 0x1C;
-	const POFFSET: usize = 0x04;
+        let ph: Vec<Box<dyn ElfProgram<Address = u32>>> = data[s..s+e]
+            .chunks(phentsize.into())
+            .map( |sh| Program32::parse::<byteorder::LittleEndian>(sh, &data).unwrap() )
+            .collect();
 
-	fn read(data: &[u8]) -> Self::Address {
-		use byteorder::{ NativeEndian, ReadBytesExt };
-		use std::io::Cursor;
+        // Get offset of the Section header table and read them all into a vector.
+        let s: usize = usize::try_from(shoff).unwrap();
+        let e: usize = (shnum * shentsize) as usize;
 
-		Cursor::new(data).read_u32::<NativeEndian>().expect("Buffer to read U32 not big enough.")
-	}
+        let mut sh: Vec<Box<dyn ElfSection<Address = u32>>> = data[s..s+e]
+            .chunks(shentsize.into())
+            .map( |sh| Section32::parse::<byteorder::LittleEndian>(sh, &data).unwrap() )
+            .collect();
 
-	fn slice(data: &[u8], off: usize) -> &[u8] {
-		&data[off..off+Self::ADDRSIZE]
-	}
+        // Get the .strtab section.
+        let strtab = sh[shstrndx as usize].raw();
 
-	fn as_usize(x: u32) -> usize {
-		x as usize
-	}
+        // Let all sections get their name.
+        for section in &mut sh {
+            section.naming( &strtab );
+        }
+
+
+        Box::new( Self { fh, ph, sh } )
+    }
+
+    /// Parses the ELF file in 32 bit big endian mode.
+    fn parsebig(data: &Vec<u8>) -> Box<dyn ElfTrait> {
+        // Parse the file header.
+        let fh = File32::parse::<byteorder::BigEndian>(&data).unwrap();
+
+        // Get program and section tables.
+        let (phoff, phnum, phentsize) = fh.programs();
+        let (shoff, shnum, shentsize) = fh.sections();
+        let shstrndx = fh.shstrndx();
+
+        // Get offset of the Program header table and read them all into a vector.
+        let s: usize = usize::try_from(phoff).unwrap();
+        let e: usize = (phnum * phentsize) as usize;
+
+        let ph: Vec<Box<dyn ElfProgram<Address = u32>>> = data[s..s+e]
+            .chunks(phentsize.into())
+            .map( |sh| Program32::parse::<byteorder::BigEndian>(sh, &data).unwrap() )
+            .collect();
+
+        // Get offset of the Section header table and read them all into a vector.
+        let s: usize = usize::try_from(shoff).unwrap();
+        let e: usize = (shnum * shentsize) as usize;
+
+        let mut sh: Vec<Box<dyn ElfSection<Address = u32>>> = data[s..s+e]
+            .chunks(shentsize.into())
+            .map( |sh| Section32::parse::<byteorder::BigEndian>(sh, &data).unwrap() )
+            .collect();
+
+        // Get the .strtab section.
+        let strtab = sh[shstrndx as usize].raw();
+
+        // Let all sections get their name.
+        for section in &mut sh {
+            section.naming( &strtab );
+        }
+
+
+        Box::new( Self { fh, ph, sh } )
+    }
+}
+
+impl ElfTrait for Elf32 {
+    fn fileheader(&self) -> &Box<dyn ElfFile<Address = u32>> {
+        &self.fh
+    }
+
+    fn programs(&self) -> &Vec<Box<dyn ElfProgram<Address = u32>>> {
+        &self.ph
+    }
+
+    fn sections(&self) -> &Vec<Box<dyn ElfSection<Address = u32>>> {
+        &self.sh
+    }
+}
+
+impl std::fmt::Display for Elf32 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut args = String::new();
+
+        // Display File Header.
+        args += &format!("{}", self.fh.prettyprint(String::new()));
+
+        // Display all Program Headers.
+        args += "\nProgram headers:\n";
+
+        for ph in &self.ph {
+            args += &format!("{}\n", ph.prettyprint(String::from("  ")));
+        }
+
+        // Display all Section Headers.
+        args += "\nSection headers:\n";
+
+        for sh in &self.sh {
+            args += &format!("{}\n", sh.prettyprint(String::from("  ")));
+        }
+
+        write!(f, "{}", args)
+    }
 }
 
 
-pub trait ElfArch {
-	type Address: Copy + Clone + std::fmt::Debug + std::fmt::Display + std::fmt::UpperHex + std::fmt::Binary +core::convert::TryInto<usize>;
-	type SectionFlags: core::fmt::Display + core::convert::From<Self::Address>;
 
-	const CLASSBIT: u8;
-	const ADDRSIZE: usize;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    /// The input stream ended unexpectedly.
+    UnexpectedEOF,
 
-	const PFLAGS: usize;
-	const PALIGN: usize;
-	const POFFSET: usize;
+    /// The ELF file magic number is not correct.
+    BadElfMagic,
 
-	fn read(data: &[u8]) -> Self::Address;
-	fn slice(data: &[u8], off: usize) -> &[u8];
-	fn as_usize(x: Self::Address) -> usize;
+    /// A bad format was selected.
+    BadElfFormat,
+
+    /// AN unknwon endiannes was found.
+    UnknownEndianness,
+
+    /// An ELF version other than 1 was found.
+    UnknownElfVersion,
 }
 
-pub struct SectionFlags32(u32);
 
-impl core::convert::From<u32> for SectionFlags32 {
-	fn from(x: u32) -> Self {
-		Self(x)
-	}
+pub trait ElfSection {
+    /// Address size.
+    type Address;
+
+    /// Parses the section from its header and the full ELF contents.
+    fn parse<T: byteorder::ByteOrder>(header: &[u8], data: &[u8]) -> Result<Box<dyn ElfSection<Address = Self::Address>>, Error> where Self: Sized;
+
+    /// Returns the name of the section.
+    fn name(&self) -> String;
+
+    /// The section reads its name from the .strtab section.
+    fn naming(&mut self, strtab: &[u8]);
+
+    /// Returns a nicely formatted String with a reduced information of the section.
+    fn info(&self) -> String;
+
+    /// Returns the raw contents.
+    fn raw(&self) -> Vec<u8>;
+
+    /// Returns the content of the Section ready to be formatted.
+    fn content(&self) -> Vec<(Self::Address, Self::Address)>;
+
+    /// Returns a pretty print of the section.
+    fn prettyprint(&self, tab: String) -> String;
 }
 
-impl core::fmt::Display for SectionFlags32 {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		let mut args = String::new();
+pub trait ElfProgram {
+    /// Address size.
+    type Address;
 
-		if self.0 & 0x001 == 0x001 {
-			args += "WRITE ";
-		}
+    /// Parses the section from its header and the full ELF contents.
+    fn parse<T: byteorder::ByteOrder>(header: &[u8], data: &[u8]) -> Result<Box<dyn ElfProgram<Address = Self::Address>>, Error> where Self: Sized;
 
-		if self.0 & 0x002 == 0x002 {
-			args += "ALLOC ";
-		}
+    /// Returns a nicely formatted String with a reduced information of the section.
+    fn info(&self) -> String;
 
-		if self.0 & 0x004 == 0x004 {
-			args += "EXEC ";
-		}
+    /// Returns the raw contents.
+    fn raw(&self) -> Vec<u8>;
 
-		if self.0 & 0x010 == 0x010 {
-			args += "MERGE ";
-		}
-
-		if self.0 & 0x020 == 0x020 {
-			args += "STRINGS ";
-		}
-
-		if self.0 & 0x040 == 0x040 {
-			args += "LINKINFO ";
-		}
-
-		if self.0 & 0x080 == 0x080 {
-			args += "LINKORDER ";
-		}
-
-		if self.0 & 0x100 == 0x100 {
-			args += "NONCONFORMING ";
-		}
-
-		if self.0 & 0x200 == 0x200 {
-			args += "GROUP ";
-		}
-
-		if self.0 & 0x400 == 0x400 {
-			args += "TLS ";
-		}
-
-		if self.0 & 0x0FF00000 == 0x0FF00000 {
-			args += "MASKOS ";
-		}
-
-		if self.0 & 0xF0000000 == 0xF0000000 {
-			args += "MASKPROC ";
-		}
-
-		write!(f, "{}", args)
-	}
+    /// Returns a pretty print of the section.
+    fn prettyprint(&self, tab: String) -> String;
 }
+
+
+pub trait ElfFile {
+    /// Address size.
+    type Address;
+
+    /// Parses the section from its header and the full ELF contents.
+    fn parse<T: byteorder::ByteOrder>(header: &[u8]) -> Result<Box<dyn ElfFile<Address = Self::Address>>, Error> where Self: Sized;
+
+    /// Returns the offset, number and size of the program headers.
+    fn programs(&self) -> (usize, usize, usize);
+
+    /// Returns the offset, number and size of the section headers.
+    fn sections(&self) -> (usize, usize, usize);
+
+    /// Returns the index of the .strtab section.
+    fn shstrndx(&self) -> usize;
+
+    /// Returns a nicely formatted String with a reduced information of the section.
+    fn info(&self) -> String;
+
+    /// Returns the raw contents.
+    fn raw(&self) -> Vec<u8>;
+
+    /// Returns a pretty print of the section.
+    fn prettyprint(&self, tab: String) -> String;
+}
+
+
+pub trait ElfTrait: core::fmt::Display {
+    /// Returns a reference to the file header.
+    fn fileheader(&self) -> &Box<dyn ElfFile<Address = u32>>;
+
+    /// Returns a reference to the program headers.
+    fn programs(&self) -> &Vec<Box<dyn ElfProgram<Address = u32>>>;
+
+    /// Returns a reference to the section headers.
+    fn sections(&self) -> &Vec<Box<dyn ElfSection<Address = u32>>>;
+}
+
+
+pub trait ElfFormat: num_integer::Integer {}
+
+impl ElfFormat for u32 {}
+impl ElfFormat for u64 {}

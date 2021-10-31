@@ -37,7 +37,10 @@ impl core::convert::From<(u8, u8)> for OsTarget {
 		use OsTarget::*;
 
 		match os {
-			0x00 => SystemV(v),
+			0x00 => match v {
+				0 => None,
+				_ => SystemV(v),
+			},
 			0x01 => HPUX(v),
 			0x02 => NetBSD(v),
 			0x03 => Linux(v),

@@ -9,16 +9,10 @@
 
 mod abi;
 mod arch;
-mod elftype;
-mod ptype;
-mod stype;
 
 
 pub use self::abi::OsTarget;
 pub use self::arch::Architecture;
-pub use self::elftype::ELFType;
-pub use self::ptype::ProgramType;
-pub use self::stype::SectionType;
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

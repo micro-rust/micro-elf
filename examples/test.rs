@@ -16,7 +16,7 @@ fn main() {
 
 	reader.read_to_end(&mut data).unwrap();
 
-	let elf: Elf<X32> = Elf::parse(data);
+	let elf = micro_elf::parse(&data);
 
 	println!("{}", elf);
 }
