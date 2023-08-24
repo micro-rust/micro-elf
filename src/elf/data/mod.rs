@@ -46,7 +46,7 @@ impl core::fmt::Display for ELF32 {
         let mut args = String::new();
 
         // Set the header.
-        args += "ELF Object 32-bit";
+        args += "ELF Object 32-bit\n";
 
         // Add the header.
         args += &format!("{}", self.header.prettyprint());
