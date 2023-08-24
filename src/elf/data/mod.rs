@@ -22,12 +22,9 @@ pub struct ELF32 {
 }
 
 impl ELF32 {
-    pub fn parse<R: AsRef<[u8]>>(raw: R) -> Result<Self, ()> {
-        // Get the raw slice.
-        let slice = raw.as_ref();
-
+    pub fn parse(raw: &[u8]) -> Result<Self, ()> {
         // Get the read function.
-        let read: fn(&[u8]) -> u32 = match slice[0x04] {
+        let read: fn(&[u8]) -> u32 = match raw[0x05] {
             1 => crate::common::bytes::read32::<byteorder::LittleEndian>,
             2 => crate::common::bytes::read32::<byteorder::BigEndian>,
 
@@ -41,4 +38,8 @@ impl ELF32 {
             header,
         })
     }
+}
+
+impl Metadata for ELF32 {
+    
 }
