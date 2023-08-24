@@ -174,3 +174,35 @@ impl<T: core::convert::TryInto<usize> + Sized> FileHeader<T> {
         })
     }
 }
+
+impl<T: core::convert::TryInto<usize> + core::fmt::Display + core::fmt::UpperHex + Sized> FileHeader<T> {
+    /// Creates a pretty print string.
+    pub fn prettyprint(&self) -> String {
+        // Create the string.
+        let mut string = String::new();
+
+        // Add the header.
+        string += &format!("ELF {} file header\n", core::mem::size_of::<T>() * 8);
+
+        // Add the target endiannessm, OS and architecture.
+        string += &format!("  - {:?}\n  - {}\n  - {}\n", self.endianness, self.targetos, self.architecture);
+
+        // Add the file type.
+        string += &format!("  - {}\n", self.filetype);
+
+        string += &format!("  - Flags: 0x{:08X}\n", self.flags);
+
+        // Add the entry point.
+        let width = core::mem::size_of::<T>();
+        string += &format!("  - Entry: 0x{:0^width$X}", self.entry);
+
+        // Add the program and section header table.
+        string += &format!("  - Program Header Table\n    · Offset: {}\n    · {} entries\n    · {} bytes per entry\n", self.phtoffset, self.phnum, self.phtesize);
+        string += &format!("  - Program Header Table\n    · Offset: {}\n    · {} entries\n    · {} bytes per entry\n", self.shtoffset, self.shnum, self.shtesize);
+
+        // Add the section header index with section names.
+        string += &format!("  - Section name section: {}", self.shstrndx);
+
+        string
+    }
+}
