@@ -15,5 +15,16 @@ license = "MPL-2.0"
 [dependencies.byteorder]
 version = "1"
 
-[dependencies.num-integer]
-version = "0.1"
+[dependencies.endianness]
+git = "https://github.com/micro-rust/comedian"
+
+#[dependencies.num-integer]
+#version = "0.1"
+
+
+
+
+[features]
+
+# Enables the ELF format.
+elf = []
