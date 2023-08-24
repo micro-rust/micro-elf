@@ -64,3 +64,9 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
         
     }
 }
+
+impl<R: AsRef<[u8]>> core::fmt::Display for ELFObject<R> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "{}", self.metadata)
+    }
+}

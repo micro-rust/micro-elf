@@ -11,7 +11,7 @@ pub use header::FileHeader;
 
 
 /// ELF metadata trait. Used to implement dynamic dispatch when analyzing ELFs.
-pub trait Metadata {
+pub trait Metadata: core::fmt::Display {
     
 }
 
@@ -37,6 +37,21 @@ impl ELF32 {
         Ok(Self {
             header,
         })
+    }
+}
+
+impl core::fmt::Display for ELF32 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        // Create the argument string.
+        let mut args = String::new();
+
+        // Set the header.
+        args += "ELF Object 32-bit";
+
+        // Add the header.
+        args += &format!("{}", self.header.prettyprint());
+
+        write!(f, "{}", args)
     }
 }
 
