@@ -148,9 +148,7 @@ impl SectionHeader {
         // Create the name string.
         self.name = String::from( string );
     }
-}
 
-impl SectionHeader {
     /// Creates a pretty print of the section's information.
     pub fn prettyprint(&self) -> String {
         // Create output string.
@@ -184,5 +182,19 @@ impl SectionHeader {
         args += &format!("  - Entry size: {}\n", self.entrysize);
 
         args
+    }
+}
+
+impl super::HasContent for SectionHeader {
+    const PROGRAM: bool = false;
+    const SECTION: bool = true;
+    const SYMBOL: bool = false;
+
+    fn offset(&self) -> usize {
+        usize::from( self.offset )
+    }
+
+    fn size(&self) -> usize {
+        usize::from( self.filesize )
     }
 }

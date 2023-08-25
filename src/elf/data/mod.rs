@@ -207,3 +207,23 @@ impl core::fmt::Display for ELFData {
         write!(f, "{}", args)
     }
 }
+
+
+
+/// Common trait for all items that can contain data in the file image.
+pub trait HasContent {
+    /// Is the item a program.
+    const PROGRAM: bool;
+
+    /// Is the item a section.
+    const SECTION: bool;
+
+    /// Is the item a symbol.
+    const SYMBOL: bool;
+
+    /// Returns the size in the file image.
+    fn size(&self) -> usize;
+
+    /// Returns the offset into the file image.
+    fn offset(&self) -> usize;
+}

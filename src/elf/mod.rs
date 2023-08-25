@@ -44,6 +44,7 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
         &self.metadata.sections
     }
 
+    /// Returns the section given an ID (String, &str or usize).
     pub fn section<I: data::section::SectionID>(&self, id: I) -> Option<&SectionHeader> {
         if I::NUMERIC {
             // Get the section at the given index.
@@ -54,6 +55,25 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
 
             // Find the section with the given name.
             self.sections().iter().find(|section| section.name() == &name)
+        }
+    }
+
+    /// Returns the contents of the given item.
+    pub fn content<I: data::HasContent>(&self, item: I) -> Option<&[u8]> {
+        if I::SECTION {
+            // Get the file size of the section.
+            let size = item.size();
+
+            if size > 0 {
+                // Get the offset.
+                let offset = item.offset();
+
+                Some( &self.raw.as_ref()[offset..offset+size] )
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }
