@@ -159,7 +159,7 @@ impl SectionHeader {
         args += &format!("  - Flags: {}\n", self.flags);
 
         // Program offset in file.
-        args += &format!("  - Address: File: {:X} | Virtual: {:X}\n", self.offset, self.vaddr);
+        args += &format!("  - Address:\n    · File: {:X}\n    · Virtual: {:X}\n", self.offset, self.vaddr);
 
         // Program size in file and memory.
         args += &format!("  - File size: {} Bytes\n", self.filesize);
