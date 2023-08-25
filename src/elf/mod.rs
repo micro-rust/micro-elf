@@ -8,7 +8,9 @@ pub mod data;
 
 
 
-use data::ELFData;
+use data::{
+    ELFData, ProgramHeader, SectionHeader,
+};
 
 
 
@@ -30,6 +32,16 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
         let metadata = ELFData::parse(raw.as_ref())?;
 
         Ok( Self { metadata, raw } )
+    }
+
+    /// Returns a reference to the list of programs.
+    pub fn programs(&self) -> &Vec<ProgramHeader> {
+        &self.metadata.programs
+    }
+
+    /// Returns a reference to the list of sections.
+    pub fn sections(&self) -> &Vec<SectionHeader> {
+        &self.metadata.sections
     }
 }
 

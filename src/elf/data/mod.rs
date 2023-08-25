@@ -16,13 +16,13 @@ pub use section::SectionHeader;
 
 pub struct ELFData {
     /// File header of an ELF object.
-    header: FileHeader,
+    pub(super) header: FileHeader,
 
     /// List of program headers.
-    programs: Vec<ProgramHeader>,
+    pub(super) programs: Vec<ProgramHeader>,
 
     /// List of section headers.
-    sections: Vec<SectionHeader>,
+    pub(super) sections: Vec<SectionHeader>,
 }
 
 impl ELFData {
