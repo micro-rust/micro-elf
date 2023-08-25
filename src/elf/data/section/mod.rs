@@ -198,3 +198,17 @@ impl super::HasContent for SectionHeader {
         usize::from( self.filesize )
     }
 }
+
+impl super::HasContent for &SectionHeader {
+    const PROGRAM: bool = false;
+    const SECTION: bool = true;
+    const SYMBOL: bool = false;
+
+    fn offset(&self) -> usize {
+        usize::from( self.offset )
+    }
+
+    fn size(&self) -> usize {
+        usize::from( self.filesize )
+    }
+}
