@@ -76,6 +76,11 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
             None
         }
     }
+
+    /// Returns the endianness of the ELF object.
+    pub const fn endianness(&self) -> endianness::Endianness {
+        self.metadata.endianness()
+    }
 }
 
 impl<R: AsRef<[u8]>> core::fmt::Display for ELFObject<R> {

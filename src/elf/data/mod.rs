@@ -178,6 +178,11 @@ impl ELFData {
 
         raw[start..end].chunks_exact(usize::from(size))
     }
+
+    /// Returns the endianness of the ELF object.
+    pub const fn endianness(&self) -> endianness::Endianness {
+        self.header.endianness
+    }
 }
 
 impl core::fmt::Display for ELFData {
