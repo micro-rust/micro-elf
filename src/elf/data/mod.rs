@@ -5,12 +5,14 @@
 pub mod header;
 pub mod program;
 pub mod section;
+pub mod symbol;
 
 
 
 pub use header::FileHeader;
 pub use program::ProgramHeader;
 pub use section::SectionHeader;
+pub use symbol::Symbol;
 
 
 
@@ -23,6 +25,9 @@ pub struct ELFData {
 
     /// List of section headers.
     pub(super) sections: Vec<SectionHeader>,
+
+    /// List of symbols.
+    pub(super) symbols: Vec<Symbol>,
 }
 
 impl ELFData {
@@ -34,6 +39,14 @@ impl ELFData {
 
             (2, 1) => crate::common::address::read64::<byteorder::LittleEndian>,
             (2, 2) => crate::common::address::read64::<byteorder::BigEndian>,
+
+            _ => return Err( () ),
+        };
+
+        // Get the read 16 bit function.
+        let read16: fn(&[u8]) -> u16 = match raw[0x05] {
+            1 => crate::common::bytes::read16::<byteorder::LittleEndian>,
+            2 => crate::common::bytes::read16::<byteorder::BigEndian>,
 
             _ => return Err( () ),
         };
@@ -107,20 +120,63 @@ impl ELFData {
             }
         }
 
+        // Get the symbol table section contents.
+        let symtab = match sections.iter().find(|section| &section.name == ".symtab") {
+            Some(section) => section,
+            _ => return Err( () ),
+        };
+
+        // Create the symbol list.
+        let mut symbols = Vec::new();
+
+        // Get the adequate Section Header parse function.
+        let sparse: fn(_, _, _, _) -> Result<Symbol, _> = match raw[0x04] {
+            1 => Symbol::parse::<_, 4>,
+            2 => Symbol::parse::<_, 8>,
+
+            _ => return Err(()),
+        };
+
+        for chunk in Self::chunks(raw, symtab.offset, usize::from(symtab.filesize) / usize::from(symtab.entrysize), symtab.entrysize) {
+            symbols.push( sparse(chunk, read, read16, read32)? );
+        }
+
+        // Load the names of all the symbols.
+        {
+            // Get the string table section contents.
+            let header = match sections.iter().find(|section| &section.name == ".strtab") {
+                Some(section) => section,
+                _ => return Err( () ),
+            };
+
+            // Get the offset and size of the .strtab section.
+            let offset   = usize::from( header.offset );
+            let filesize = usize::from( header.filesize );
+
+            // Get the range of raw data of this section.
+            let names = &raw[offset..offset+filesize];
+
+            // Rename all the sections.
+            for symbol in &mut symbols {
+                symbol.rename( names );
+            }
+        }
+
         Ok(Self {
             header,
             programs,
             sections,
+            symbols,
         })
     }
 
     /// Internal function to create chunk iterators over the tables of the file.
-    fn chunks(raw: &[u8], offset: crate::common::address::Address, num: u16, size: u16) -> core::slice::ChunksExact<u8> {
+    fn chunks<O: Copy, N: Copy, S: Copy>(raw: &[u8], offset: O, num: N, size: S) -> core::slice::ChunksExact<u8> where usize: From<O> + From<N> + From<S> {
         // Calculate the start and end.
         let start = usize::from(offset);
-        let end = usize::from(offset) + (num as usize * size as usize);
+        let end = usize::from(offset) + (usize::from(num) * usize::from(size));
 
-        raw[start..end].chunks_exact(size as usize)
+        raw[start..end].chunks_exact(usize::from(size))
     }
 }
 
@@ -142,6 +198,10 @@ impl core::fmt::Display for ELFData {
 
         for section in &self.sections {
             args += &format!("\n{}", section.prettyprint());
+        }
+
+        for symbol in &self.symbols {
+            args += &format!("\n{}", symbol.prettyprint());
         }
 
         write!(f, "{}", args)
