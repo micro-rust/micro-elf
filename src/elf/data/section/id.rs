@@ -13,6 +13,18 @@ pub trait SectionID {
     fn index(self) -> usize;
 }
 
+impl SectionID for &str {
+    const NUMERIC: bool = false;
+
+    fn name(self) -> String {
+        String::from( self )
+    }
+
+    fn index(self) -> usize {
+        0
+    }
+}
+
 impl SectionID for String {
     const NUMERIC: bool = false;
 
