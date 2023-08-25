@@ -43,6 +43,19 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
     pub fn sections(&self) -> &Vec<SectionHeader> {
         &self.metadata.sections
     }
+
+    pub fn section<I: data::section::SectionID>(&self, id: I) -> Option<&SectionHeader> {
+        if I::NUMERIC {
+            // Get the section at the given index.
+            self.sections().get(id.index())
+        } else {
+            // Get the name.
+            let name = id.name();
+
+            // Find the section with the given name.
+            self.sections().iter().find(|section| section.name() == &name)
+        }
+    }
 }
 
 impl<R: AsRef<[u8]>> core::fmt::Display for ELFObject<R> {

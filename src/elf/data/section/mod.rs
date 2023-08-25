@@ -3,10 +3,12 @@
 
 
 
+mod id;
 mod sectiontype;
 
 
 
+pub use id::SectionID;
 pub use sectiontype::SectionType;
 
 use crate::common::address::Address;
@@ -120,6 +122,11 @@ impl SectionHeader {
             alignment,
             entrysize,
         })
+    }
+
+    /// Returns a reference to the name of the section.
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     /// Grabs the name of this section from the given raw strings.
