@@ -9,10 +9,12 @@ mod sectiontype;
 
 pub use sectiontype::SectionType;
 
+use crate::common::address::Address;
+
 
 
 /// A common section header structure. Will be instantiated by each implementator.
-pub struct SectionHeader<T: core::convert::TryInto<usize> + Sized> {
+pub struct SectionHeader {
     /// Section name.
     pub(super) name: String,
 
@@ -24,16 +26,16 @@ pub struct SectionHeader<T: core::convert::TryInto<usize> + Sized> {
 
     /// Section flags.
     /// Dependent on the section type.
-    pub(super) flags: T,
+    pub(super) flags: Address,
 
     /// Virtual address of the section in memory (for loaded sections).
-    pub(super) vaddr: T,
+    pub(super) vaddr: Address,
 
     /// Offset of the section in the file image.
-    pub(super) offset: T,
+    pub(super) offset: Address,
 
     /// Size in bytes of the section in the file image.
-    pub(super) filesize: T,
+    pub(super) filesize: Address,
 
     /// Section index of an associated section.
     pub(super) link: u32,
@@ -42,26 +44,23 @@ pub struct SectionHeader<T: core::convert::TryInto<usize> + Sized> {
     pub(super) info: u32,
 
     /// Alignment of the section.
-    pub(super) alignment: T,
+    pub(super) alignment: Address,
 
     /// Size in bytes of the entries in the section (for fixed sized entries).
-    pub(super) entrysize: T,
+    pub(super) entrysize: Address,
 }
 
-impl<T: core::convert::TryInto<usize> + Sized> SectionHeader<T> {
-    // Byte size of the type for increment.
-    const INC: usize = core::mem::size_of::<T>();
-
-    // Size of the header depending on the inner type.
-    const HSIZE: usize = 16 + (6 * core::mem::size_of::<T>());
-
+impl SectionHeader {
     /// Parses the given slice of data into an ELF file header.
-    pub fn parse<R: AsRef<[u8]>>(raw: R, read: fn(&[u8]) -> T, read32: fn(&[u8]) -> u32) -> Result<Self, ()> {
+    pub fn parse<R: AsRef<[u8]>, const INC: usize>(raw: R, read: fn(&[u8]) -> Address, read32: fn(&[u8]) -> u32) -> Result<Self, ()> {
+        // Full header size constant.
+        let hsize: usize = 16 + ( 6 * INC );
+
         // Deref the slice.
         let raw = raw.as_ref();
 
         // Check there is minimum length.
-        if raw.len() < Self::HSIZE {
+        if raw.len() < hsize {
             return Err(());
         }
 
@@ -75,20 +74,20 @@ impl<T: core::convert::TryInto<usize> + Sized> SectionHeader<T> {
         let mut i = 0x08;
 
         // Read the flags of the section.
-        let flags = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let flags = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the virtual address.
-        let vaddr = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let vaddr = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the file offset.
-        let offset = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let offset = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the file size.
-        let filesize = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let filesize = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the link information.
         let link = read32( &raw[i..i+4] );
@@ -99,14 +98,14 @@ impl<T: core::convert::TryInto<usize> + Sized> SectionHeader<T> {
         i += 4;
 
         // Read the alignment.
-        let alignment = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let alignment = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the entry size.
-        let entrysize = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let entrysize = read( &raw[i..i+INC] );
+        i += INC;
 
-        assert_eq!(i, Self::HSIZE);
+        assert_eq!(i, hsize);
 
         Ok(Self {
             name: String::new(),
@@ -144,7 +143,7 @@ impl<T: core::convert::TryInto<usize> + Sized> SectionHeader<T> {
     }
 }
 
-impl<T: core::convert::TryInto<usize> + Sized + core::fmt::Display + core::fmt::UpperHex> SectionHeader<T> {
+impl SectionHeader {
     /// Creates a pretty print of the section's information.
     pub fn prettyprint(&self) -> String {
         // Create output string.
@@ -160,7 +159,7 @@ impl<T: core::convert::TryInto<usize> + Sized + core::fmt::Display + core::fmt::
         args += &format!("  - Flags: {}\n", self.flags);
 
         // Program offset in file.
-        args += &format!("  - Address: File: 0x{:08X} | Virtual: 0x{:08X}\n", self.offset, self.vaddr);
+        args += &format!("  - Address: File: {:X} | Virtual: {:X}\n", self.offset, self.vaddr);
 
         // Program size in file and memory.
         args += &format!("  - File size: {} Bytes\n", self.filesize);

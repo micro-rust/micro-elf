@@ -11,10 +11,12 @@ mod programtype;
 pub use flags::Flags;
 pub use programtype::ProgramType;
 
+use crate::common::address::Address;
+
 
 
 /// A common program header structure. Will be instantiated by each implementator.
-pub struct ProgramHeader<T: core::convert::TryInto<usize> + Sized> {
+pub struct ProgramHeader {
     /// Type of program header.
     pub(super) programtype: ProgramType,
 
@@ -22,38 +24,35 @@ pub struct ProgramHeader<T: core::convert::TryInto<usize> + Sized> {
     pub(super) flags: Flags,
 
     /// Offset in the file.
-    pub(super) offset: T,
+    pub(super) offset: Address,
 
     /// Virtual load address.
-    pub(super) vaddr: T,
+    pub(super) vaddr: Address,
 
     /// Physical load address.
-    pub(super) paddr: T,
+    pub(super) paddr: Address,
 
     /// Size in bytes of the segment in the file.
-    pub(super) filesize: T,
+    pub(super) filesize: Address,
 
     /// Size in bytes of the segment in memory.
-    pub(super) memsize: T,
+    pub(super) memsize: Address,
 
     /// Alignment of the segment in memory.
-    pub(super) alignment: T,
+    pub(super) alignment: Address,
 }
 
-impl<T: core::convert::TryInto<usize> + Sized> ProgramHeader<T> {
-    // Byte size of the type for increment.
-    const INC: usize = core::mem::size_of::<T>();
-
-    // Size of the header depending on the inner type.
-    const HSIZE: usize = 8 + (6 * core::mem::size_of::<T>());
-
+impl ProgramHeader {
     /// Parses the given slice of data into an ELF file header.
-    pub fn parse<R: AsRef<[u8]>>(raw: R, read: fn(&[u8]) -> T, read32: fn(&[u8]) -> u32) -> Result<Self, ()> {
+    pub fn parse<R: AsRef<[u8]>, const INC: usize>(raw: R, read: fn(&[u8]) -> Address, read32: fn(&[u8]) -> u32) -> Result<Self, ()> {
+        // Header size constant.
+        let hsize: usize = 8 + (6 * INC);
+
         // Deref the slice.
         let raw = raw.as_ref();
 
         // Check there is minimum length.
-        if raw.len() < Self::HSIZE {
+        if raw.len() < hsize {
             return Err(());
         }
 
@@ -66,41 +65,41 @@ impl<T: core::convert::TryInto<usize> + Sized> ProgramHeader<T> {
         // Create the dynamic index.
         let mut i = 0x04;
 
-        if core::mem::size_of::<T>() == 8 {
+        if INC == 8 {
             flags = Flags::from( read32( &raw[i..i+4] ) );
             i += 4;
         }
 
         // Read the offset.
-        let offset = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let offset = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the virtual address.
-        let vaddr = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let vaddr = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the virtual address.
-        let paddr = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let paddr = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the virtual address.
-        let filesize = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let filesize = read( &raw[i..i+INC] );
+        i += INC;
 
         // Read the virtual address.
-        let memsize = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let memsize = read( &raw[i..i+INC] );
+        i += INC;
 
-        if core::mem::size_of::<T>() == 4 {
+        if INC == 4 {
             flags = Flags::from( read32( &raw[i..i+4] ) );
             i += 4;
         }
 
         // Read the alignment.
-        let alignment = read( &raw[i..i+Self::INC] );
-        i += Self::INC;
+        let alignment = read( &raw[i..i+INC] );
+        i += INC;
 
-        assert_eq!(i, Self::HSIZE);
+        assert_eq!(i, hsize);
 
         Ok(Self {
             programtype,
@@ -115,7 +114,7 @@ impl<T: core::convert::TryInto<usize> + Sized> ProgramHeader<T> {
     }
 }
 
-impl<T: core::convert::TryInto<usize> + Sized + core::fmt::Display + core::fmt::UpperHex> ProgramHeader<T> {
+impl ProgramHeader {
     /// Creates a pretty print of the segment's information.
     pub fn prettyprint(&self) -> String {
         // Create output string.
@@ -131,11 +130,12 @@ impl<T: core::convert::TryInto<usize> + Sized + core::fmt::Display + core::fmt::
         args += &format!("  - Flags: {}\n", self.flags);
 
         // Program offset in file.
-        args += &format!("  - Address: Physical: 0x{:08X} | Virtual: 0x{:08X}\n", self.paddr, self.vaddr);
-        args += &format!("  - Address: File: 0x{:08X}\n", self.offset);
+        args += &format!("  - Address: Physical: 0x{:X} | Virtual: 0x{:X}\n", self.paddr, self.vaddr);
+        args += &format!("  - Address: File: 0x{:X}\n", self.offset);
 
-        // Program size in file and memory.
+        // Program and memory size in file and memory.
         args += &format!("  - File size: {} Bytes\n", self.filesize);
+        args += &format!("  - Mem size : {} Bytes\n", self.memsize);
 
         // Alignment of the section.
         args += &format!("  - Alignment: 2 << {} Bytes\n", self.alignment);

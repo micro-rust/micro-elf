@@ -8,7 +8,7 @@ pub mod data;
 
 
 
-use self::data::Metadata;
+use data::ELFData;
 
 
 
@@ -17,7 +17,7 @@ use self::data::Metadata;
 pub struct ELFObject<R: AsRef<[u8]>> {
     /// The metadata of the ELF object.
     /// Indexes all content within the file.
-    metadata: Box<dyn Metadata>,
+    metadata: ELFData,
 
     /// The raw ELF data.
     raw: R,
@@ -26,42 +26,10 @@ pub struct ELFObject<R: AsRef<[u8]>> {
 impl<R: AsRef<[u8]>> ELFObject<R> {
     /// Parses the given data into an ELF object.
     pub fn parse(raw: R) -> Result<Self, ()> {
-        // Get the slice.
-        let slice = raw.as_ref();
+        // Parse the data.
+        let metadata = ELFData::parse(raw.as_ref())?;
 
-        // Check the inner size to create the metadata.
-        match slice[0x04] {
-            1 => {
-                // Parse the data.
-                let metadata = Box::new( data::ELF32::parse(raw.as_ref())? );
-
-                Ok(Self { metadata, raw })
-            },
-
-            2 => {
-                // Parse the data.
-                let metadata = Box::new( data::ELF32::parse(raw.as_ref())? );
-
-                Ok(Self { metadata, raw })
-            },
-
-            _ => return Err( () ),
-        }
-    }
-
-    /// Returns an iterator over the programs of the ELF object.
-    pub fn programs() {
-        
-    }
-
-    /// Returns an iterator over the sections of the ELF object.
-    pub fn sections() {
-
-    }
-
-    /// Returns an iterator over the symbols of the ELF object.
-    pub fn symbols() {
-        
+        Ok( Self { metadata, raw } )
     }
 }
 

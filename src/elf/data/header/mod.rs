@@ -14,10 +14,12 @@ pub use arch::Architecture;
 pub use endianness::Endianness;
 pub use filetype::FileType;
 
+use crate::common::address::Address;
+
 
 
 /// A common file header structure. Will be instantiated by each implementator.
-pub struct FileHeader<T: core::convert::TryInto<usize> + Sized> {
+pub struct FileHeader {
     /// Endianness of the target hardware.
     pub(super) endianness: Endianness,
 
@@ -31,13 +33,13 @@ pub struct FileHeader<T: core::convert::TryInto<usize> + Sized> {
     pub(super) architecture: Architecture,
 
     /// Entry point of the program.
-    pub(super) entry: T,
+    pub(super) entry: Address,
 
     /// Offset of the Program Header Table.
-    pub(super) phtoffset: T,
+    pub(super) phtoffset: Address,
 
     /// Offset of the Section Header Table.
-    pub(super) shtoffset: T,
+    pub(super) shtoffset: Address,
 
     /// Architecture flags.
     pub(super) flags: u32,
@@ -58,20 +60,17 @@ pub struct FileHeader<T: core::convert::TryInto<usize> + Sized> {
     pub(super) shstrndx: u16,
 }
 
-impl<T: core::convert::TryInto<usize> + Sized> FileHeader<T> {
-    // Byte size of the type for increment.
-    const INC: usize = core::mem::size_of::<T>();
-
-    // Size of the header depending on the inner type.
-    const HSIZE: usize = 40 + (3 * core::mem::size_of::<T>());
-
+impl FileHeader {
     /// Parses the given slice of data into an ELF file header.
-    pub fn parse<R: AsRef<[u8]>>(raw: R, read: fn(&[u8]) -> T) -> Result<Self, ()> {
+    pub fn parse<R: AsRef<[u8]>, const INC: usize>(raw: R, read: fn(&[u8]) -> Address) -> Result<Self, ()> {
+        // Header size constant.
+        let hsize: usize = 40 + (3 * INC);
+
         // Deref the slice.
         let raw = raw.as_ref();
 
         // Check there is minimum length.
-        if raw.len() < Self::HSIZE {
+        if raw.len() < hsize {
             return Err(());
         }
 
@@ -114,23 +113,23 @@ impl<T: core::convert::TryInto<usize> + Sized> FileHeader<T> {
         let mut i = 0x18;
 
         // Read entry point.
-        let entry = read(&raw[i..i+Self::INC]);
-        i += Self::INC;
+        let entry = read(&raw[i..i+INC]);
+        i += INC;
 
         // Read the program header table offset.
-        let phtoffset = read(&raw[i..i+Self::INC]);
-        i += Self::INC;
+        let phtoffset = read(&raw[i..i+INC]);
+        i += INC;
 
         // Read the section header table offset.
-        let shtoffset = read(&raw[i..i+Self::INC]);
-        i += Self::INC;
+        let shtoffset = read(&raw[i..i+INC]);
+        i += INC;
 
         // Read the flags.
         let flags = read32(&raw[i..i+4]);
         i += 4;
 
         // Read the size of this header.
-        if read16(&raw[i..i+2]) as usize != Self::HSIZE {
+        if read16(&raw[i..i+2]) as usize != hsize {
             return Err( () );
         }
         i += 2;
@@ -155,7 +154,7 @@ impl<T: core::convert::TryInto<usize> + Sized> FileHeader<T> {
         let shstrndx = read16(&raw[i..i+2]);
         i += 2;
 
-        assert_eq!(i, Self::HSIZE);
+        assert_eq!(i, hsize);
 
         Ok(Self {
             endianness,
@@ -175,14 +174,14 @@ impl<T: core::convert::TryInto<usize> + Sized> FileHeader<T> {
     }
 }
 
-impl<T: core::convert::TryInto<usize> + core::fmt::Display + core::fmt::UpperHex + Sized> FileHeader<T> {
+impl FileHeader {
     /// Creates a pretty print string.
     pub fn prettyprint(&self) -> String {
         // Create the string.
         let mut string = String::new();
 
         // Add the header.
-        string += &format!("ELF {} file header\n", core::mem::size_of::<T>() * 8);
+        string += &format!("ELF {} file header\n", self.entry.bits());
 
         // Add the target endiannessm, OS and architecture.
         string += &format!("  - Endianness: {:?}\n  - {}\n  - {}\n", self.endianness, self.targetos, self.architecture);
@@ -190,18 +189,17 @@ impl<T: core::convert::TryInto<usize> + core::fmt::Display + core::fmt::UpperHex
         // Add the file type.
         string += &format!("  - {}\n", self.filetype);
 
-        string += &format!("  - Flags: 0x{:08X}\n", self.flags);
+        string += &format!("  - Flags: 0x{:X}\n", self.flags);
 
         // Add the entry point.
-        let width = core::mem::size_of::<T>();
-        string += &format!("  - Entry: 0x{:0^width$X}\n", self.entry);
+        string += &format!("  - Entry: 0x{:X}\n", self.entry);
 
         // Add the program and section header table.
         string += &format!("  - Program Header Table\n    · Offset: {}\n    · {} entries\n    · {} bytes per entry\n", self.phtoffset, self.phnum, self.phtesize);
         string += &format!("  - Section Header Table\n    · Offset: {}\n    · {} entries\n    · {} bytes per entry\n", self.shtoffset, self.shnum, self.shtesize);
 
         // Add the section header index with section names.
-        string += &format!("  - Section header string index: {}", self.shstrndx);
+        string += &format!("  - Section header string index: {}\n", self.shstrndx);
 
         string
     }
