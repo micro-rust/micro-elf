@@ -35,6 +35,16 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
         Ok( Self { metadata, raw } )
     }
 
+    /// Returns the target architecture.
+    pub const fn architecture(&self) -> data::header::Architecture {
+        self.metadata.header.architecture()
+    }
+
+    /// Returns the target OS.
+    pub const fn os(&self) -> data::header::TargetOS {
+        self.metadata.header.os()
+    }
+
     /// Returns a reference to the list of programs.
     pub fn programs(&self) -> &Vec<ProgramHeader> {
         &self.metadata.programs
