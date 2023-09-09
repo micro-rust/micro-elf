@@ -9,7 +9,7 @@ pub mod data;
 
 
 use data::{
-    ELFData, ProgramHeader, SectionHeader,
+    ELFData, ProgramHeader, SectionHeader, Symbol,
 };
 
 
@@ -43,6 +43,11 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
     /// Returns a reference to the list of sections.
     pub fn sections(&self) -> &Vec<SectionHeader> {
         &self.metadata.sections
+    }
+
+    /// Returns a reference to the list of symbols.
+    pub fn symbols(&self) -> &Vec<Symbol> {
+        &self.metadata.symbols
     }
 
     /// Returns the section given an ID (String, &str or usize).
