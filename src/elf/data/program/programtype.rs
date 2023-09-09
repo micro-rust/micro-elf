@@ -1,6 +1,8 @@
 //! All possible program types.
 
 
+
+#[derive(Debug)]
 pub enum ProgramType {
     Null        ,
     Load        ,

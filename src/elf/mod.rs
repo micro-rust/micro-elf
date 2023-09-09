@@ -16,6 +16,7 @@ use data::{
 
 /// A container of the raw ELF data as well as the parsed metadata necessary
 /// for the analysis and modification of the contents.
+#[derive(Debug)]
 pub struct ELFObject<R: AsRef<[u8]>> {
     /// The metadata of the ELF object.
     /// Indexes all content within the file.

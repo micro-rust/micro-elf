@@ -16,6 +16,7 @@ use crate::common::address::Address;
 
 
 /// A common section header structure. Will be instantiated by each implementator.
+#[derive(Debug)]
 pub struct SectionHeader {
     /// Section name.
     pub(super) name: String,

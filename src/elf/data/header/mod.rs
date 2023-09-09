@@ -19,6 +19,7 @@ use crate::common::address::Address;
 
 
 /// A common file header structure. Will be instantiated by each implementator.
+#[derive(Debug)]
 pub struct FileHeader {
     /// Endianness of the target hardware.
     pub(super) endianness: Endianness,

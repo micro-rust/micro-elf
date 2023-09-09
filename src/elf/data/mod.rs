@@ -16,6 +16,7 @@ pub use symbol::Symbol;
 
 
 
+#[derive(Debug)]
 pub struct ELFData {
     /// File header of an ELF object.
     pub(super) header: FileHeader,

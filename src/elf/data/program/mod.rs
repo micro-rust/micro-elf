@@ -16,6 +16,7 @@ use crate::common::address::Address;
 
 
 /// A common program header structure. Will be instantiated by each implementator.
+#[derive(Debug)]
 pub struct ProgramHeader {
     /// Type of program header.
     pub(super) programtype: ProgramType,
