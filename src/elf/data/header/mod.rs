@@ -173,6 +173,21 @@ impl FileHeader {
             shstrndx,
         })
     }
+
+    /// Returns the target architecture.
+    pub const fn architecture(&self)  -> Architecture {
+        self.architecture
+    }
+
+    /// Returns the target endianness.
+    pub const fn endianness(&self)  -> Endianness {
+        self.endianness
+    }
+
+    /// Returns the target OS.
+    pub const fn os(&self)  -> TargetOS {
+        self.targetos
+    }
 }
 
 impl FileHeader {
