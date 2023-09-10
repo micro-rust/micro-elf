@@ -137,6 +137,11 @@ impl Symbol {
         }
     }
 
+    /// Returns a reference to the name of this symbol.
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
     /// Grabs the name of this section from the given raw strings.
     pub(super) fn rename(&mut self, names: &[u8]) {
         use core::ffi::CStr;
