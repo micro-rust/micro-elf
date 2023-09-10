@@ -142,6 +142,16 @@ impl Symbol {
         &self.name
     }
 
+    /// Returns `true` if the symbol is an function.
+    pub fn is_function(&self) -> bool {
+        self.symboltype == SymbolType::Function
+    }
+
+    /// Returns `true` if the symbol is an object.
+    pub fn is_object(&self) -> bool {
+        self.symboltype == SymbolType::Object
+    }
+
     /// Grabs the name of this section from the given raw strings.
     pub(super) fn rename(&mut self, names: &[u8]) {
         use core::ffi::CStr;
