@@ -28,6 +28,11 @@ impl SubSlice {
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a u8> {
         self.arc[self.start..self.end].iter()
     }
+
+    /// Returns the length of the subslice.
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
 }
 
 impl<I: core::slice::SliceIndex<[u8]>> core::ops::Index<I> for SubSlice {
