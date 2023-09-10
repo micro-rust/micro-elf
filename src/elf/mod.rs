@@ -8,9 +8,13 @@ pub mod data;
 
 
 
+use crate::common::subslice::SubSlice;
+
 use data::{
     ELFData, ProgramHeader, SectionHeader, Symbol,
 };
+
+use std::sync::Arc;
 
 
 
@@ -74,28 +78,44 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
         }
     }
 
+    /// Returns the endianness of the ELF object.
+    pub const fn endianness(&self) -> endianness::Endianness {
+        self.metadata.endianness()
+    }
+}
+
+impl ELFObject<Arc<[u8]>> {
     /// Returns the contents of the given item.
-    pub fn content<I: data::HasContent>(&self, item: I) -> Option<&[u8]> {
+    pub fn content<I: data::HasContent>(&self, item: I) -> Option<SubSlice> {
         if I::SECTION {
             // Get the file size of the section.
             let size = item.size();
 
-            if size > 0 {
-                // Get the offset.
-                let offset = item.offset();
+            match size {
+                0 => None,
+                _ => {
+                    // Get the offset.
+                    let offset = item.offset();
 
-                Some( &self.raw.as_ref()[offset..offset+size] )
-            } else {
-                None
+                    Some( SubSlice::new( self.raw.clone(), offset, offset+size ) )
+                },
+            }
+        } else if I::SYMBOL {
+            // Get the file size of the section.
+            let size = item.size();
+
+            match size {
+                0 => None,
+                _ => {
+                    // Get the offset.
+                    let offset = item.offset();
+
+                    Some( SubSlice::new( self.raw.clone(), offset, offset+size ) )
+                },
             }
         } else {
             None
         }
-    }
-
-    /// Returns the endianness of the ELF object.
-    pub const fn endianness(&self) -> endianness::Endianness {
-        self.metadata.endianness()
     }
 }
 

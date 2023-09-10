@@ -193,4 +193,64 @@ impl Symbol {
 
         args
     }
+
+    /// Returns the binding of the symbol.
+    pub fn bind(&self) -> Bind {
+        self.bind
+    }
+
+    /// Returns the kind of the symbol.
+    pub fn kind(&self) -> SymbolType {
+        self.symboltype
+    }
+
+    /// Returns the value of the symbol.
+    pub fn value(&self) -> Address {
+        self.value
+    }
+
+    /// Returns the size of the symbol.
+    pub fn size(&self) -> Address {
+        self.size
+    }
+}
+
+impl super::HasContent for Symbol {
+    const PROGRAM: bool = false;
+    const SECTION: bool = false;
+    const SYMBOL: bool = true;
+
+    fn offset(&self) -> usize {
+        match self.symboltype {
+            SymbolType::Object | SymbolType::Function => usize::from( self.value ),
+            _ => 0,
+        }
+    }
+
+    fn size(&self) -> usize {
+        match self.symboltype {
+            SymbolType::Object | SymbolType::Function => usize::from( self.size ),
+            _ => 0,
+        }
+    }
+}
+
+impl super::HasContent for &Symbol {
+    const PROGRAM: bool = false;
+    const SECTION: bool = false;
+    const SYMBOL: bool = true;
+
+    fn offset(&self) -> usize {
+        match self.symboltype {
+            SymbolType::Object | SymbolType::Function => usize::from( self.value ),
+            _ => 0,
+        }
+    }
+
+    fn size(&self) -> usize {
+        match self.symboltype {
+            SymbolType::Object | SymbolType::Function => usize::from( self.size ),
+            _ => 0,
+        }
+    }
 }
