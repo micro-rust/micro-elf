@@ -14,21 +14,23 @@ pub use program::ProgramHeader;
 pub use section::SectionHeader;
 pub use symbol::Symbol;
 
+use std::sync::Arc;
+
 
 
 #[derive(Debug)]
 pub struct ELFData {
     /// File header of an ELF object.
-    pub(super) header: FileHeader,
+    pub(super) header: Arc<FileHeader>,
 
     /// List of program headers.
-    pub(super) programs: Vec<ProgramHeader>,
+    pub(super) programs: Vec<Arc<ProgramHeader>>,
 
     /// List of section headers.
-    pub(super) sections: Vec<SectionHeader>,
+    pub(super) sections: Vec<Arc<SectionHeader>>,
 
     /// List of symbols.
-    pub(super) symbols: Vec<Symbol>,
+    pub(super) symbols: Vec<Arc<Symbol>>,
 }
 
 impl ELFData {
@@ -69,7 +71,7 @@ impl ELFData {
         };
 
         // Parse the header.
-        let header = fparse(raw, read)?;
+        let header = Arc::new( fparse(raw, read)? );
 
         // Create the program list.
         let mut programs = Vec::new();
@@ -83,7 +85,7 @@ impl ELFData {
         };
 
         for chunk in Self::chunks(raw, header.phtoffset, header.phnum, header.phtesize) {
-            programs.push( pparse(chunk, read, read32)? );
+            programs.push( Arc::new( pparse(chunk, read, read32)? ) );
         }
     
         // Create the section list.
@@ -120,6 +122,11 @@ impl ELFData {
                 section.rename( names );
             }
         }
+
+        // Put all sections in ARC.
+        let sections: Vec<Arc<SectionHeader>> = sections.into_iter()
+            .map(|x| Arc::new(x))
+            .collect();
 
         // Get the symbol table section contents.
         let symtab = match sections.iter().find(|section| &section.name == ".symtab") {
@@ -163,6 +170,11 @@ impl ELFData {
             }
         }
 
+        // Put all symbols in ARC.
+        let symbols = symbols.into_iter()
+            .map(|x| Arc::new(x))
+            .collect();
+
         Ok(Self {
             header,
             programs,
@@ -181,7 +193,7 @@ impl ELFData {
     }
 
     /// Returns the endianness of the ELF object.
-    pub const fn endianness(&self) -> endianness::Endianness {
+    pub fn endianness(&self) -> endianness::Endianness {
         self.header.endianness
     }
 }

@@ -40,32 +40,32 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
     }
 
     /// Returns the target architecture.
-    pub const fn architecture(&self) -> data::header::Architecture {
+    pub fn architecture(&self) -> data::header::Architecture {
         self.metadata.header.architecture()
     }
 
     /// Returns the target OS.
-    pub const fn os(&self) -> data::header::TargetOS {
+    pub fn os(&self) -> data::header::TargetOS {
         self.metadata.header.os()
     }
 
     /// Returns a reference to the list of programs.
-    pub fn programs(&self) -> &Vec<ProgramHeader> {
+    pub fn programs(&self) -> &Vec<Arc<ProgramHeader>> {
         &self.metadata.programs
     }
 
     /// Returns a reference to the list of sections.
-    pub fn sections(&self) -> &Vec<SectionHeader> {
+    pub fn sections(&self) -> &Vec<Arc<SectionHeader>> {
         &self.metadata.sections
     }
 
     /// Returns a reference to the list of symbols.
-    pub fn symbols(&self) -> &Vec<Symbol> {
+    pub fn symbols(&self) -> &Vec<Arc<Symbol>> {
         &self.metadata.symbols
     }
 
     /// Returns the section given an ID (String, &str or usize).
-    pub fn section<I: data::section::SectionID>(&self, id: I) -> Option<&SectionHeader> {
+    pub fn section<I: data::section::SectionID>(&self, id: I) -> Option<&Arc<SectionHeader>> {
         if I::NUMERIC {
             // Get the section at the given index.
             self.sections().get(id.index())
@@ -79,7 +79,7 @@ impl<R: AsRef<[u8]>> ELFObject<R> {
     }
 
     /// Returns the endianness of the ELF object.
-    pub const fn endianness(&self) -> endianness::Endianness {
+    pub fn endianness(&self) -> endianness::Endianness {
         self.metadata.endianness()
     }
 }
