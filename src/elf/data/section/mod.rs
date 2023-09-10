@@ -130,6 +130,16 @@ impl SectionHeader {
         &self.name
     }
 
+    /// Returns the section size.
+    pub fn size(&self) -> Address {
+        self.size
+    }
+
+    /// Returns the section virtual address.
+    pub fn virt(&self) -> Address {
+        self.virt
+    }
+
     /// Grabs the name of this section from the given raw strings.
     pub(super) fn rename(&mut self, names: &[u8]) {
         use core::ffi::CStr;
