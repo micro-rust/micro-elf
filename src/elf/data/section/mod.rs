@@ -131,13 +131,13 @@ impl SectionHeader {
     }
 
     /// Returns the section size.
-    pub fn size(&self) -> Address {
-        self.size
+    pub fn filesize(&self) -> Address {
+        self.filesize
     }
 
     /// Returns the section virtual address.
-    pub fn virt(&self) -> Address {
-        self.virt
+    pub fn vaddr(&self) -> Address {
+        self.vaddr
     }
 
     /// Grabs the name of this section from the given raw strings.
