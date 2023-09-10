@@ -30,10 +30,10 @@ impl SubSlice {
     }
 }
 
-impl core::ops::Index<usize> for SubSlice {
-    type Output = u8;
+impl<I: core::slice::SliceIndex<[u8]>> core::ops::Index<I> for SubSlice {
+    type Output = I::Output;
 
-    fn index(&self, index: usize) -> &u8 {
+    fn index(&self, index: I) -> &Self::Output {
         &(&self.arc[self.start..self.end])[index]
     }
 }
